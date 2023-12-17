@@ -1,0 +1,106 @@
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import make_pipeline
+import re
+
+data = [
+    ("valid@example.com", "VALID"),
+    ("invalid.email", "INVALID"),
+    ("another.valid@example.com", "VALID"),
+    ("user123@example.com", "VALID"),
+    ("john.doe@company.org", "VALID"),
+    ("inval!d.email", "INVALID"),
+    ("special_chars@company-name.com", "VALID"),
+    ("missing_at_symbol.com", "INVALID"),
+]
+
+emails, labels = zip(*data)
+
+X_train, X_test, y_train, y_test = train_test_split(emails, labels, test_size=0.2, random_state=42)
+
+model = make_pipeline(TfidfVectorizer(analyzer='char', ngram_range=(2, 3)), RandomForestClassifier(n_estimators=100))
+model.fit(X_train, y_train)
+
+def is_valid_email_format(email):
+    if '@' not in email:
+        return False
+    
+    if '@@' in email:
+        return False
+
+    if email.count('@') != 1:
+        return False
+
+    if "'@'" in email or "@'" in email or "'@'" in email:
+        return False
+
+    local_part, domain_part = email.split('@')
+    if not (re.match(r"^[^.@][^@]*[^.@]$", local_part) and 
+            re.match(r"^[a-zA-Z0-9.!#$%&'*+-/=?^_{1}-]+(\.[a-zA-Z0-9.!#$%&'*+-/=?^_{1}-]+)*$", domain_part)):
+        return False
+
+    if not re.match(r"^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$", domain_part):
+        return False
+
+    if not re.match(r"^[a-zA-Z]{2,}$", domain_part.split('.')[-1]):
+        return False
+
+    if len(email) > 254:
+        return False
+
+    if len(email) - email.rindex('@') <= 6:
+        return False
+
+    if email.find('@') < 0:
+        return False
+
+    if len(local_part) > 64:
+        return False
+
+    if any(ord(char) > 127 for char in email):
+        return False
+
+    if '_' in domain_part:
+        return False
+
+    if (' ' in email or '"' in email or '\\' in email) and ('"' not in email or email.count('"') % 2 != 0):
+        return False
+
+    if len(domain_part.split('.')[-1]) < 2:
+        return False
+
+    if re.search(r'[!#$%&*+-/=?^_]{2,}', email):
+        return False
+
+    if all(char in "!#$%&*+-/=?^_" for char in email):
+        return False
+
+    if '.' not in email:
+        return False
+
+    if email.index('@') == 0:
+        return False
+
+    if email.startswith('-') or email.endswith('-'):
+        return False
+
+    if email.lower() != email and email.upper() != email:
+        return False
+
+    if '""' in email:
+        return False
+
+    if re.search(r'["\'!#$%&*+,./:;=?^_`{|}~]+', email) and ('"' not in email or email.count('"') % 2 == 0):
+        return False
+
+    if re.match(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", domain_part):
+        return False
+
+    return True
+
+# Testing the additional examples
+for email in ["valid@example.com", "invalid.email", "another.valid@example.com", "user123@example.com",
+              "john.doe@company.org", "inval!d.email", "special_chars@company-name.com", "missing_at_symbol.com"]:
+    result = is_valid_email_format(email)
+    print(f"{email}: {result}")
